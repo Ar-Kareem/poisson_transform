@@ -1,8 +1,8 @@
 # Poisson 2D Transform
 
-This is a [poisson equation](https://en.wikipedia.org/wiki/Poisson%27s_equation) in **curved 2d space** [finite difference](https://en.wikipedia.org/wiki/Finite_difference_method) solver.
+This is a [finite difference](https://en.wikipedia.org/wiki/Finite_difference_method) solver for [poisson equations](https://en.wikipedia.org/wiki/Poisson%27s_equation) in **curved 2d space**.
 
-Many different poisson solvers exist but few provide simple to use solvers for curved-space.
+Many different poisson solvers exist but few solve for curved-spaces.
 
 This package provides that in a very simple to use interface.
 
