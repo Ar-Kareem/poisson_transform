@@ -49,4 +49,4 @@ version = {attr = "poisson_transform.__version__"}
 
 #build and pypi push            rm dist/* && python -m build --sdist --wheel && python -m twine upload --repository pypi dist/*
 
-# test package locally                 pip uninstall -y poisson_transform ; pip install dist\dice_calc-0.0.9.tar.gz ; python ./test.py
+# test package locally                 pip uninstall -y poisson_transform ; pip install dist\....tar.gz ; python ./test.py
