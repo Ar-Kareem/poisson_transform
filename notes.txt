@@ -1,0 +1,11 @@
+for development: 
+    clone repo and ensure conda is installed in your system
+    # you can multiple env's for different platforms i.e. ./env-linux and ./env-win etc.
+    `conda env create --prefix ./env -f environment.yml`
+    `conda activate ./env`
+    `python -m build --sdist --wheel`
+    `pip install -e . --config-settings editable_mode=strict`
+
+
+TODO:
+    check which python versions package is compatible with
