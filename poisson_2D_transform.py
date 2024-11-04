@@ -49,6 +49,23 @@ class Transformation:
         return float(self.f_dy_dksieta.subs({self.ksi: ksi_val, self.eta: eta_val}))
     def dy_detaeta(self, ksi_val, eta_val):
         return float(self.f_dy_detaeta.subs({self.ksi: ksi_val, self.eta: eta_val}))
+
+    def take_first_order_derivatives(self, ksi_val, eta_val):
+        dx_dksi = self.dx_dksi(ksi_val, eta_val)
+        dx_deta = self.dx_deta(ksi_val, eta_val)
+        dy_dksi = self.dy_dksi(ksi_val, eta_val)
+        dy_deta = self.dy_deta(ksi_val, eta_val)
+        return dx_dksi, dx_deta, dy_dksi, dy_deta
+    def take_second_order_derivatives(self, ksi_val, eta_val):
+        dx_dksiksi = self.dx_dksiksi(ksi_val, eta_val)
+        dx_dksieta = self.dx_dksieta(ksi_val, eta_val)
+        dx_detaeta = self.dx_detaeta(ksi_val, eta_val)
+        dy_dksiksi = self.dy_dksiksi(ksi_val, eta_val)
+        dy_dksieta = self.dy_dksieta(ksi_val, eta_val)
+        dy_detaeta = self.dy_detaeta(ksi_val, eta_val)
+        return dx_dksiksi, dx_dksieta, dx_detaeta, dy_dksiksi, dy_dksieta, dy_detaeta
+
+
     @staticmethod
     def get_ksi_eta():
         import sympy
@@ -60,6 +77,66 @@ def get_identity_transformation():
     Tx = ksi
     Ty = eta
     return Transformation(ksi, eta, Tx, Ty)
+
+def _stamp_derivative(matrix, nodemap, i, j, dimension, value):
+    """ Stamp the matrix to take derivatives, coefs are from https://en.wikipedia.org/wiki/Finite_difference_coefficient """
+    Nx, Ny = nodemap.shape
+    x_sign = {0: 1, (Nx-1): -1}.get(i, 0)  # 0 if not on left/right boundary, 1 if on left, -1 if on right, if 0 then easy ksi derivative otherwise harder due to ghost point
+    y_sign = {0: 1, (Ny-1): -1}.get(j, 0)  # 0 if not on top/bottom boundary, 1 if on top, -1 if on bottom, if 0 then easy eta derivative otherwise harder due to ghost point
+    if dimension == 'x':
+        if x_sign == 0:
+            matrix[nodemap[i, j], nodemap[i+1, j]] += +value/2  # TODO is this 1/2 correct?
+            matrix[nodemap[i, j], nodemap[i-1, j]] += -value/2
+        else:
+            # FORWARD: −3f(x) + 4f(x + ∆x) − f(x + 2∆x) /(2∆x)
+            # BACKWARD: 3f(x) − 4f(x − ∆x) + f(x − 2∆x) /(2∆x)
+            matrix[nodemap[i, j], nodemap[i, j]]          += -3*x_sign*value/2
+            matrix[nodemap[i, j], nodemap[i+x_sign, j]]   +=  4*x_sign*value/2
+            matrix[nodemap[i, j], nodemap[i+2*x_sign, j]] += -1*x_sign*value/2
+    elif dimension == 'y':
+        if y_sign == 0:
+            matrix[nodemap[i, j], nodemap[i, j+1]] += +value/2
+            matrix[nodemap[i, j], nodemap[i, j-1]] += -value/2
+        else:
+            # FORWARD: −3f(x) + 4f(x + ∆x) − f(x + 2∆x) /(2∆x)
+            # BACKWARD: 3f(x) − 4f(x − ∆x) + f(x − 2∆x) /(2∆x)
+            matrix[nodemap[i, j], nodemap[i, j]]          += -3*y_sign*value/2
+            matrix[nodemap[i, j], nodemap[i, j+y_sign]]   +=  4*y_sign*value/2
+            matrix[nodemap[i, j], nodemap[i, j+2*y_sign]] += -1*y_sign*value/2
+    elif dimension == 'xx':
+        if x_sign == 0:
+            matrix[nodemap[i, j], nodemap[i+1, j  ]] += +value
+            matrix[nodemap[i, j], nodemap[i  , j  ]] += -2*value
+            matrix[nodemap[i, j], nodemap[i-1, j  ]] += +value
+        else:
+            # FORWARD: 2f(x) − 5f(x + ∆x) + 4f(x + 2∆x) − f(x + 3∆x) /∆x^2
+            # BACKWARD: -2f(x) + 5f(x − ∆x) − 4f(x − 2∆x) + f(x − 3∆x) /∆x^2
+            matrix[nodemap[i, j], nodemap[i, j]]          += +2*x_sign*value
+            matrix[nodemap[i, j], nodemap[i+x_sign, j]]   += -5*x_sign*value
+            matrix[nodemap[i, j], nodemap[i+2*x_sign, j]] += +4*x_sign*value
+            matrix[nodemap[i, j], nodemap[i+3*x_sign, j]] += -1*x_sign*value
+    elif dimension == 'yy':
+        if y_sign == 0:
+            matrix[nodemap[i, j], nodemap[i  , j+1]] += +value
+            matrix[nodemap[i, j], nodemap[i  , j  ]] += -2*value
+            matrix[nodemap[i, j], nodemap[i  , j-1]] += +value
+        else:
+            # FORWARD: 2f(x) − 5f(x + ∆x) + 4f(x + 2∆x) − f(x + 3∆x) /∆x^2
+            # BACKWARD: -2f(x) + 5f(x − ∆x) − 4f(x − 2∆x) + f(x − 3∆x) /∆x^2
+            matrix[nodemap[i, j], nodemap[i, j]]          += +2*y_sign*value
+            matrix[nodemap[i, j], nodemap[i, j+y_sign]]   += -5*y_sign*value
+            matrix[nodemap[i, j], nodemap[i, j+2*y_sign]] += +4*y_sign*value
+            matrix[nodemap[i, j], nodemap[i, j+3*y_sign]] += -1*y_sign*value
+    elif dimension == 'xy':
+        if x_sign == 0 and y_sign == 0:
+            matrix[nodemap[i, j], nodemap[i+1, j+1]] += +value/4
+            matrix[nodemap[i, j], nodemap[i+1, j-1]] += -value/4
+            matrix[nodemap[i, j], nodemap[i-1, j+1]] += -value/4
+            matrix[nodemap[i, j], nodemap[i-1, j-1]] += +value/4
+        else:
+            raise NotImplementedError("Not implemented")
+    else:
+        raise Exception("Should not be here")
 
 def SolvePoisson(Nx: int, Ny: int, transformation: Transformation = None, f: callable = None, g: callable = None):
     """Returns matrix A and vector b such that solving for u in Au=b is u that solves the Poisson equation
@@ -107,16 +184,8 @@ def SolvePoisson(Nx: int, Ny: int, transformation: Transformation = None, f: cal
     for i in range(Nx):
         for j in range(Ny):
             b_rhs[NodeMap[i, j]] = f(ksi=ksi[i, j], eta=eta[i, j], x=transformation.Tx(ksi[i, j], eta[i, j]), y=transformation.Ty(ksi[i, j], eta[i, j]))
-            dx_dksi = transformation.dx_dksi(ksi[i, j], eta[i, j])
-            dx_deta = transformation.dx_deta(ksi[i, j], eta[i, j])
-            dy_dksi = transformation.dy_dksi(ksi[i, j], eta[i, j])
-            dy_deta = transformation.dy_deta(ksi[i, j], eta[i, j])
-            dx_dksiksi = transformation.dx_dksiksi(ksi[i, j], eta[i, j])
-            dx_dksieta = transformation.dx_dksieta(ksi[i, j], eta[i, j])
-            dx_detaeta = transformation.dx_detaeta(ksi[i, j], eta[i, j])
-            dy_dksiksi = transformation.dy_dksiksi(ksi[i, j], eta[i, j])
-            dy_dksieta = transformation.dy_dksieta(ksi[i, j], eta[i, j])
-            dy_detaeta = transformation.dy_detaeta(ksi[i, j], eta[i, j])
+            dx_dksi, dx_deta, dy_dksi, dy_deta = transformation.take_first_order_derivatives(ksi[i, j], eta[i, j])
+            dx_dksiksi, dx_dksieta, dx_detaeta, dy_dksiksi, dy_dksieta, dy_detaeta = transformation.take_second_order_derivatives(ksi[i, j], eta[i, j])
 
             a = (dx_deta**2 + dy_deta**2)
             b = (dx_dksi*dx_deta + dy_dksi*dy_deta)
@@ -133,7 +202,6 @@ def SolvePoisson(Nx: int, Ny: int, transformation: Transformation = None, f: cal
             c_ksi = inv_J_sq * d
             c_eta = inv_J_sq * e
 
-
             # setup first order derivative matrix, not needed for solving poissons equation but useful for plotting
             # ux = 1/J (yηuξ − yξuη)
             cx_ksi = 1/J[i, j] * dy_deta
@@ -142,62 +210,24 @@ def SolvePoisson(Nx: int, Ny: int, transformation: Transformation = None, f: cal
             cy_ksi = 1/J[i, j] * -dx_deta
             cy_eta = 1/J[i, j] * dx_dksi
             # take derivatives, making sure to not go out of bounds and maintain second order convergence
-            x_sign = {0: 1, (Nx-1): -1}.get(i, 0)
-            y_sign = {0: 1, (Ny-1): -1}.get(j, 0)
-            # u_ksi
-            if x_sign == 0:  # easy ksi derivative
-                Dx_1st_order[NodeMap[i, j], NodeMap[i+1, j]] += +cx_ksi / (2*d_ksi)
-                Dx_1st_order[NodeMap[i, j], NodeMap[i-1, j]] += -cx_ksi / (2*d_ksi)
-                Dy_1st_order[NodeMap[i, j], NodeMap[i+1, j]] += +cy_ksi / (2*d_ksi)
-                Dy_1st_order[NodeMap[i, j], NodeMap[i-1, j]] += -cy_ksi / (2*d_ksi)
-            else:  # harder ksi derivative due to ghost point
-                # FORWARD: −3f(x) + 4f(x + ∆x) − f(x + 2∆x) /(2∆x)
-                # BACKWARD: 3f(x) − 4f(x − ∆x) + f(x − 2∆x) /(2∆x)
-                Dx_1st_order[NodeMap[i, j], NodeMap[i, j]]          += -3*x_sign*cx_ksi / (2*d_ksi)
-                Dx_1st_order[NodeMap[i, j], NodeMap[i+x_sign, j]]   +=  4*x_sign*cx_ksi / (2*d_ksi)
-                Dx_1st_order[NodeMap[i, j], NodeMap[i+2*x_sign, j]] += -1*x_sign*cx_ksi / (2*d_ksi)
-                Dy_1st_order[NodeMap[i, j], NodeMap[i, j]]          += -3*x_sign*cy_ksi / (2*d_ksi)
-                Dy_1st_order[NodeMap[i, j], NodeMap[i+x_sign, j]]   +=  4*x_sign*cy_ksi / (2*d_ksi)
-                Dy_1st_order[NodeMap[i, j], NodeMap[i+2*x_sign, j]] += -1*x_sign*cy_ksi / (2*d_ksi)
-            # u_eta
-            if y_sign == 0:  # easy eta derivative
-                Dx_1st_order[NodeMap[i, j], NodeMap[i, j+1]] += +cx_eta / (2*d_eta)
-                Dx_1st_order[NodeMap[i, j], NodeMap[i, j-1]] += -cx_eta / (2*d_eta)
-                Dy_1st_order[NodeMap[i, j], NodeMap[i, j+1]] += +cy_eta / (2*d_eta)
-                Dy_1st_order[NodeMap[i, j], NodeMap[i, j-1]] += -cy_eta / (2*d_eta)
-            else:  # harder eta derivative due to ghost point
-                # FORWARD: −3f(x) + 4f(x + ∆x) − f(x + 2∆x) /(2∆x)
-                # BACKWARD: 3f(x) − 4f(x − ∆x) + f(x − 2∆x) /(2∆x)
-                Dx_1st_order[NodeMap[i, j], NodeMap[i, j]]          += -3*y_sign*cx_eta / (2*d_eta)
-                Dx_1st_order[NodeMap[i, j], NodeMap[i, j+y_sign]]   +=  4*y_sign*cx_eta / (2*d_eta)
-                Dx_1st_order[NodeMap[i, j], NodeMap[i, j+2*y_sign]] += -1*y_sign*cx_eta / (2*d_eta)
-                Dy_1st_order[NodeMap[i, j], NodeMap[i, j]]          += -3*y_sign*cy_eta / (2*d_eta)
-                Dy_1st_order[NodeMap[i, j], NodeMap[i, j+y_sign]]   +=  4*y_sign*cy_eta / (2*d_eta)
-                Dy_1st_order[NodeMap[i, j], NodeMap[i, j+2*y_sign]] += -1*y_sign*cy_eta / (2*d_eta)
+            # dudx matrix
+            _stamp_derivative(Dx_1st_order, NodeMap, i, j, 'x', value=cx_ksi / d_ksi)
+            _stamp_derivative(Dx_1st_order, NodeMap, i, j, 'y', value=cx_eta / d_eta)
+            # dudy matrix
+            _stamp_derivative(Dy_1st_order, NodeMap, i, j, 'x', value=cy_ksi / d_ksi)
+            _stamp_derivative(Dy_1st_order, NodeMap, i, j, 'y', value=cy_eta / d_eta)
 
             if i == 0 or i == Nx-1 or j == 0 or j == Ny-1:  # skip boundary nodes
                 continue
 
             # INTERIOR POINTS
-            # u_ksiksi
-            A[NodeMap[i, j], NodeMap[i+1, j  ]] += +c_ksiksi / (d_ksi**2)
-            A[NodeMap[i, j], NodeMap[i  , j  ]] += -2*c_ksiksi / (d_ksi**2)
-            A[NodeMap[i, j], NodeMap[i-1, j  ]] += +c_ksiksi / (d_ksi**2)
-            # u_etaeta
-            A[NodeMap[i, j], NodeMap[i  , j+1]] += +c_etaeta / (d_eta**2)
-            A[NodeMap[i, j], NodeMap[i  , j  ]] += -2*c_etaeta / (d_eta**2)
-            A[NodeMap[i, j], NodeMap[i  , j-1]] += +c_etaeta / (d_eta**2)
-            # u_ksieta
-            A[NodeMap[i, j], NodeMap[i+1, j+1]] += +c_ksieta / (4*d_ksi*d_eta)
-            A[NodeMap[i, j], NodeMap[i+1, j-1]] += -c_ksieta / (4*d_ksi*d_eta)
-            A[NodeMap[i, j], NodeMap[i-1, j+1]] += -c_ksieta / (4*d_ksi*d_eta)
-            A[NodeMap[i, j], NodeMap[i-1, j-1]] += +c_ksieta / (4*d_ksi*d_eta)
-            # u_ksi
-            A[NodeMap[i, j], NodeMap[i+1, j  ]] += +c_ksi / (2*d_ksi)
-            A[NodeMap[i, j], NodeMap[i-1, j  ]] += -c_ksi / (2*d_ksi)
-            # u_eta
-            A[NodeMap[i, j], NodeMap[i  , j+1]] += +c_eta / (2*d_eta)
-            A[NodeMap[i, j], NodeMap[i  , j-1]] += -c_eta / (2*d_eta)
+            _stamp_derivative(A, NodeMap, i, j, 'xx', value=c_ksiksi / (d_ksi**2))  # u_ksiksi
+            _stamp_derivative(A, NodeMap, i, j, 'yy', value=c_etaeta / (d_eta**2))  # u_etaeta
+            _stamp_derivative(A, NodeMap, i, j, 'xy', value=c_ksieta / (d_ksi*d_eta))  # u_ksieta
+            _stamp_derivative(A, NodeMap, i, j, 'x', value=c_ksi / d_ksi)  # u_ksi
+            _stamp_derivative(A, NodeMap, i, j, 'y', value=c_eta / d_eta)  # u_eta
+
+    laplacian_matrix = A.copy()  # TODO not really laplacian matrix as the boundaries are not stamped
 
     for i in range(Nx):
         for j in range(Ny):
@@ -210,10 +240,7 @@ def SolvePoisson(Nx: int, Ny: int, transformation: Transformation = None, f: cal
             # α*u
             A[NodeMap[i, j], NodeMap[i, j]] += alpha
             # β*∂u/∂n  (we need to compute ∂u/∂n)
-            dx_dksi = transformation.dx_dksi(ksi[i, j], eta[i, j])
-            dx_deta = transformation.dx_deta(ksi[i, j], eta[i, j])
-            dy_dksi = transformation.dy_dksi(ksi[i, j], eta[i, j])
-            dy_deta = transformation.dy_deta(ksi[i, j], eta[i, j])
+            dx_dksi, dx_deta, dy_dksi, dy_deta = transformation.take_first_order_derivatives(ksi[i, j], eta[i, j])
             # parallel to current edge
             if j == 0:
                 parallel = (-dx_dksi, -dy_dksi)
@@ -228,38 +255,16 @@ def SolvePoisson(Nx: int, Ny: int, transformation: Transformation = None, f: cal
             n__norm = np.sqrt(parallel[0]**2 + parallel[1]**2)
             n__x = -parallel[1]/n__norm
             n__y = parallel[0]/n__norm
-            # β * ∂u/∂n = β* u_x n^x + β* u_y n^y  =  β/J [(y_η n^x − x_η n^y) u_ξ + (-y_ξ n^x + x_ξ n^y) u_η]
-            # c_ksi = β/J (y_η n^x-x_η n^y )
-            # c_η = β/J (x_ξ n^y-y_ξ n^x )
+            # β * ∂u/∂n = β* u_x n__x + β* u_y n__y  =  β/J [(y_η n__x − x_η n__y) u_ξ + (-y_ξ n__x + x_ξ n__y) u_η]
+            # c_ksi = β/J (y_η n__x - x_η n__y )
+            # c_η = β/J (x_ξ n__y - y_ξ n__x )
             c_ksi = beta/J[i, j] * (dy_deta*n__x - dx_deta*n__y)
             c_eta = beta/J[i, j] * (dx_dksi*n__y - dy_dksi*n__x)
-            # take derivatives, making sure to not go out of bounds and maintain second order convergence
-            x_sign = {0: 1, (Nx-1): -1}.get(i, 0)
-            y_sign = {0: 1, (Ny-1): -1}.get(j, 0)
-            # u_ksi
-            if x_sign == 0:  # easi ksi derivative
-                A[NodeMap[i, j], NodeMap[i+1, j]] += +c_ksi / (2*d_ksi)
-                A[NodeMap[i, j], NodeMap[i-1, j]] += -c_ksi / (2*d_ksi)
-            else:  # harder ksi derivative due to ghost point
-                # FORWARD: −3f(x) + 4f(x + ∆x) − f(x + 2∆x) /(2∆x)
-                # BACKWARD: 3f(x) − 4f(x − ∆x) + f(x − 2∆x) /(2∆x)
-                A[NodeMap[i, j], NodeMap[i, j]]          += -3*x_sign*c_ksi / (2*d_ksi)
-                A[NodeMap[i, j], NodeMap[i+x_sign, j]]   +=  4*x_sign*c_ksi / (2*d_ksi)
-                A[NodeMap[i, j], NodeMap[i+2*x_sign, j]] += -1*x_sign*c_ksi / (2*d_ksi)
 
-            # u_eta
-            if y_sign == 0:  # easy eta derivative
-                A[NodeMap[i, j], NodeMap[i, j+1]] += +c_eta / (2*d_eta)
-                A[NodeMap[i, j], NodeMap[i, j-1]] += -c_eta / (2*d_eta)
-            else:  # harder eta derivative due to ghost point
-                # FORWARD: −3f(x) + 4f(x + ∆x) − f(x + 2∆x) /(2∆x)
-                # BACKWARD: 3f(x) − 4f(x − ∆x) + f(x − 2∆x) /(2∆x)
-                A[NodeMap[i, j], NodeMap[i, j]]          += -3*y_sign*c_eta / (2*d_eta)
-                A[NodeMap[i, j], NodeMap[i, j+y_sign]]   +=  4*y_sign*c_eta / (2*d_eta)
-                A[NodeMap[i, j], NodeMap[i, j+2*y_sign]] += -1*y_sign*c_eta / (2*d_eta)
+            _stamp_derivative(A, NodeMap, i, j, 'x', c_ksi/d_ksi)
+            _stamp_derivative(A, NodeMap, i, j, 'y', c_eta/d_eta)
 
     # impose Dirichlet conditions inside Ω (essentially when we know the value of u at certain points)
-    laplacian_matrix = A.copy()
     F = b_rhs.copy()
     for i in range(1, Nx-1):
         for j in range(1, Ny-1):
@@ -271,28 +276,19 @@ def SolvePoisson(Nx: int, Ny: int, transformation: Transformation = None, f: cal
             A[NodeMap[i, j], :] = 0
             A[NodeMap[i, j], NodeMap[i, j]] = 1
             b_rhs[NodeMap[i, j]] = g_val
-    return {'A': A, 'b_rhs': b_rhs, 'laplacian_matrix': laplacian_matrix, 'F': F, 'Dx_1st_order': Dx_1st_order, 'Dy_1st_order': Dy_1st_order}
+    return {'A': A, 'b_rhs': b_rhs, 'laplacian_matrix': laplacian_matrix, 'F': F, 
+            'Dx_1st_order': Dx_1st_order, 'Dy_1st_order': Dy_1st_order, 'Jacobian': J} 
 
 def solveLinear(Nx, Ny, A, b_rhs):
     solution = scipy.sparse.linalg.spsolve(A.tocsr(), b_rhs)
     return solution.reshape((Nx, Ny), order='F')
 
-def integrateSolution(Nx, Ny, solution, transformation=None):
-    if transformation is None:
-        transformation = get_identity_transformation()
+def integrateSolution(Nx, Ny, solution, jacobian):
     d_ksi, d_eta = 1/(Nx-1), 1/(Ny-1)
-    ksi, eta = np.zeros((Nx, Ny)), np.zeros((Nx, Ny))
-    J = np.zeros((Nx, Ny))
-    for i in range(Nx):
-        for j in range(Ny): 
-            ksi[i, j] = i*d_ksi
-            eta[i, j] = j*d_eta
-            J[i, j] = transformation.dx_dksi(ksi[i, j], eta[i, j]) * transformation.dy_deta(ksi[i, j], eta[i, j]) \
-                        - transformation.dx_deta(ksi[i, j], eta[i, j]) * transformation.dy_dksi(ksi[i, j], eta[i, j])
     sol_integral = 0
     for j in range(Ny-1):
         for i in range(Nx-1):
-            sol_integral += np.mean(solution[i:i+2, j:j+2]) * np.mean(J[i:i+2, j:j+2])*d_ksi*d_eta
+            sol_integral += np.mean(solution[i:i+2, j:j+2]) * np.mean(jacobian[i:i+2, j:j+2])*d_ksi*d_eta
     return sol_integral
 
 def plotGeometry(Nx: int, Ny: int, transformation: Transformation = None):
@@ -311,17 +307,17 @@ def plotGeometry(Nx: int, Ny: int, transformation: Transformation = None):
     plt.title('Geometry')
 
 
-def plotSolution(Nx: int, Ny: int, solution: np.ndarray, transformation: Transformation = None, contour_levels=20, gradient: (np.ndarray, np.ndarray) = None):
+def plotSolution(Nx: int, Ny: int, solution: np.ndarray, transformation: Transformation = None, contour_levels=20, gradient: (np.ndarray, np.ndarray) = None, laplace_u: np.ndarray = None):
     if transformation is None:
         transformation = get_identity_transformation()
     ksi, eta = np.meshgrid(np.linspace(0, 1, Nx), np.linspace(0, 1, Ny), indexing='ij')
     x = np.array([transformation.Tx(ksi_val, eta_val) for ksi_val, eta_val in zip(ksi.flatten(), eta.flatten())]).reshape(ksi.shape)
     y = np.array([transformation.Ty(ksi_val, eta_val) for ksi_val, eta_val in zip(ksi.flatten(), eta.flatten())]).reshape(ksi.shape)
-    if gradient is not None:
-        plt.figure(figsize=(12, 5))
-        plt.subplot(1, 2, 1)
-    else:
-        plt.figure(figsize=(6, 5))
+    num_plots = 1 + (gradient is not None) + (laplace_u is not None)
+    plot_idx = 1
+    plt.figure(figsize=(6*num_plots, 5))
+    if num_plots > 1:
+        plt.subplot(1, num_plots, plot_idx)
     # segs1 = np.stack((x, y), axis=2)
     # segs2 = segs1.transpose(1, 0, 2)
     # plt.gca().add_collection(LineCollection(segs1, alpha=0.2, colors='white'))
@@ -335,8 +331,20 @@ def plotSolution(Nx: int, Ny: int, solution: np.ndarray, transformation: Transfo
     plt.title('Solution $u$')
 
     if gradient is not None:
-        plt.subplot(1, 2, 2)
+        plot_idx += 1
+        plt.subplot(1, num_plots, plot_idx)
         plotStreams(x, y, gradient[1], gradient[2], gradient[0])
+    
+    if laplace_u is not None:
+        plot_idx += 1
+        plt.subplot(1, num_plots, plot_idx)
+        plt.contourf(x, y, laplace_u, 41, cmap='inferno')
+        plt.colorbar()
+        plt.contour(x, y, laplace_u, contour_levels, colors='k', linewidths=0.2)
+        plt.axis('equal')
+        plt.xlabel('x')
+        plt.ylabel('y')
+        plt.title(r'$-\nabla^2 u$')
     plt.tight_layout()
 
 
@@ -356,9 +364,10 @@ def plotStreams(xx, yy, u, v, z, ax=None):
     pv = v.flatten(order='F')
     pz = z.flatten(order='F')
 
-    gu = griddata(np.r_[ px[None,:], py[None,:] ].T, pu, (xi,yi))
-    gv = griddata(np.r_[ px[None,:], py[None,:] ].T, pv, (xi,yi))
-    gz = griddata(np.r_[ px[None,:], py[None,:] ].T, pz, (xi,yi))
+    zipped = np.r_[ px[None,:], py[None,:] ].T
+    gu = griddata(zipped, pu, (xi,yi))
+    gv = griddata(zipped, pv, (xi,yi))
+    gz = griddata(zipped, pz, (xi,yi))
     lw = 2*gz/np.nanmax(gz)
 
     im = ax.contourf(xx, yy, z, 41, cmap='afmhot')
@@ -380,13 +389,13 @@ def solve_and_plot(Nx, Ny, transformation=None, f=None, g=None, contour_levels=2
     du_dx = d['Dx_1st_order'].dot(_sol_flat)
     du_dy = d['Dy_1st_order'].dot(_sol_flat)
     du = np.sqrt(du_dx**2 + du_dy**2)
-    # nabla_u = d['laplacian_matrix'].dot(_sol_flat)
-    # residual = nabla_u - d['F']
+    laplace_u = d['laplacian_matrix'].dot(_sol_flat)
+    # residual = laplace_u - d['F']
     # logger.info('residual', np.linalg.norm(residual))
     du_dx = -du_dx.reshape((Nx, Ny), order='F')
     du_dy = -du_dy.reshape((Nx, Ny), order='F')
     du = du.reshape((Nx, Ny), order='F')
-    # nabla_u = nabla_u.reshape((Nx, Ny), order='F')
+    laplace_u = laplace_u.reshape((Nx, Ny), order='F')
     # residual = residual.reshape((Nx, Ny), order='F')
-    logger.info("Integral: {}".format(integrateSolution(Nx, Ny, sol, transformation)))
-    plotSolution(Nx, Ny, sol, transformation=transformation, contour_levels=contour_levels, gradient=(du, du_dx, du_dy))
+    logger.info("Integral: {}".format(integrateSolution(Nx, Ny, sol, d['Jacobian'])))
+    plotSolution(Nx, Ny, sol, transformation=transformation, contour_levels=contour_levels, gradient=(du, du_dx, du_dy), laplace_u=laplace_u)
