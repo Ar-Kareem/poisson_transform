@@ -47,6 +47,6 @@ packages = [
 [tool.setuptools.dynamic]
 version = {attr = "poisson_transform.__version__"}
 
-#build and pypi push            rm dist/* && python -m build --sdist --wheel && python -m twine upload --repository pypi dist/*
+#build and pypi push            rm dist/* && python -m build --sdist && python -m twine upload --repository pypi dist/*
 
 # test package locally                 pip uninstall -y poisson_transform ; pip install dist\....tar.gz ; python ./test.py
