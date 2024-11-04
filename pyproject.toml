@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "poisson_transform"
+dynamic = ["version"]
+description = "Poisson Solver in Tranformed 2D Space using Finite Difference"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Ar-Kareem" }
+]
+maintainers = [
+    { name = "Ar-Kareem" }
+]
+keywords = ["poisson", "solver", "finite difference", "transformed space", "2D", "numerical", "mathematics", "physics", "engineering", "computational", "science", "research"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+
+    "License :: OSI Approved :: MIT License",
+    
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+requires-python = ">=3.9.0"
+
+[project.urls]
+# Homepage = "https://github.com/Ar-Kareem/.../"
+# Repository = "https://github.com/Ar-Kareem/.../"
+# Issues = "https://github.com/Ar-Kareem/.../issues"
+
+[tool.setuptools]
+package-dir = {"poisson_transform" = "src"}
+
+packages = [
+    "poisson_transform",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "poisson_transform.__version__"}
+
+#build and pypi push            rm dist/* && python -m build --sdist --wheel && python -m twine upload --repository pypi dist/*
+
+# test package locally                 pip uninstall -y poisson_transform ; pip install dist\dice_calc-0.0.9.tar.gz ; python ./test.py
