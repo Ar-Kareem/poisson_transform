@@ -5,3 +5,5 @@ build
 numpy
 scipy
 matplotlib
+sympy
+nbconvert
