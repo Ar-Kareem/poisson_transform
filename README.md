@@ -19,7 +19,7 @@ First you specify the following inputs:
 - g: the Boundary conditions of poisson's equation. If empty will set BCs to Dirichlet.
   - `g` should be a function that takes in coordinates and returns (a, b, g) for the boundary condition such that `a*u + b*∂u/∂n = g` on ∂Ω (boundary of domain) 
     - For example, returning `(1, 0, 0)` sets `u=0` which is a dirichlet conditions on that point.
-    - For example, returning `(0, 1, 0)` sets `∂u/∂n=0` which is a dirichlet conditions on that point.
+    - For example, returning `(0, 1, 0)` sets `∂u/∂n=0` which is a neumann conditions on that point.
     - For example, returning `(1, 2, 3)` sets `u + 2*∂u/∂n = 3` on that point.
 - Specify the transformation to be used `T_x, T_y` where `x = T_x(ksi)` and `y = T_y(eta)`. `ksi` and `eta` are the identity coordinates: $\xi \in [0, 1]$ and $\eta \in [0, 1]$. If empty then the identity transformation will be used.
   1. To do this, simply obtain the variables `ksi, eta` with the following line `ksi, eta = Transformation.get_ksi_eta()`
@@ -41,10 +41,10 @@ from poisson_transform import solve_and_plot
 solve_and_plot(Nx=30, Ny=30)
 ```
 
-    19:35:29 Warning: both f and g are None. Are you sure this is what you want?
-    19:35:29 f is None. Setting f=1
-    19:35:29 g is None. Setting Dirichlet BCs 
-    19:35:30 Integral: 0.03500889856987609
+    22:54:15 Warning: both f and g are None. Are you sure this is what you want?
+    22:54:15 f is None. Setting f=1
+    22:54:15 g is None. Setting Dirichlet BCs 
+    22:54:17 Integral: 0.03500889856987609
     
 
 
@@ -65,8 +65,8 @@ def f(x, y, ksi, eta):
 solve_and_plot(Nx=31, Ny=31, f=f)
 ```
 
-    19:35:32 g is None. Setting Dirichlet BCs 
-    19:35:34 Integral: 0.06935111999589494
+    22:54:19 g is None. Setting Dirichlet BCs 
+    22:54:21 Integral: 0.06935111999589494
     
 
 
@@ -97,7 +97,7 @@ def g(x, y, ksi, eta):
 solve_and_plot(Nx=31, Ny=31, f=f, g=g)
 ```
 
-    19:35:37 Integral: 0.0832355038593408
+    22:54:24 Integral: 0.0832355038593408
     
 
 
@@ -133,7 +133,7 @@ transformation = Transformation(ksi, eta, Tx, Ty)
 solve_and_plot(Nx=29, Ny=29, transformation=transformation, f=f, g=g)
 ```
 
-    19:35:41 Integral: 5.2916463228833726
+    22:54:28 Integral: 5.2916463228833726
     
 
 
@@ -154,10 +154,10 @@ plotGeometry(Nx=29, Ny=29, transformation=transformation)
 solve_and_plot(Nx=29, Ny=29, transformation=transformation)
 ```
 
-    19:35:43 Warning: both f and g are None. Are you sure this is what you want?
-    19:35:43 f is None. Setting f=1
-    19:35:43 g is None. Setting Dirichlet BCs 
-    19:35:45 Integral: 0.016063603756651158
+    22:54:30 Warning: both f and g are None. Are you sure this is what you want?
+    22:54:30 f is None. Setting f=1
+    22:54:30 g is None. Setting Dirichlet BCs 
+    22:54:32 Integral: 0.016063603756651158
     
 
 
@@ -202,7 +202,7 @@ Tx_rot, Ty_rot = np.cos(rotate_phi)*Tx - np.sin(rotate_phi)*Ty, np.sin(rotate_ph
 solve_and_plot(Nx=15, Ny=15, transformation=Transformation(ksi, eta, Tx_rot, Ty_rot), f=f, g=g, contour_levels=20)
 ```
 
-    19:35:48 Integral: 0.021996048708012562
+    22:54:35 Integral: 0.021996048708012562
     
 
 
@@ -246,7 +246,7 @@ Tx_rot, Ty_rot = np.cos(rotate_phi)*Tx - np.sin(rotate_phi)*Ty, np.sin(rotate_ph
 solve_and_plot(Nx=15, Ny=15, transformation=Transformation(ksi, eta, Tx_rot, Ty_rot), f=f, g=g, contour_levels=20)
 ```
 
-    19:35:51 Integral: 0.20123610428427863
+    22:54:37 Integral: 0.20123610428427863
     
 
 
@@ -281,7 +281,7 @@ plotGeometry(38, 38, Transformation(ksi, eta, Tx, Ty))
 solve_and_plot(Nx=38, Ny=38, transformation=Transformation(ksi, eta, Tx, Ty), f=f, g=g)
 ```
 
-    19:36:06 Integral: 0.46734117404100667
+    22:54:52 Integral: 0.46734117404100667
     
 
 
@@ -326,7 +326,7 @@ Ty = cc*ksi*(1-eta)+hh*eta
 solve_and_plot(Nx=38, Ny=38, transformation=Transformation(ksi, eta, Tx, Ty), f=f, g=g)
 ```
 
-    19:36:12 Integral: 0.06464775169432217
+    22:54:57 Integral: 0.06464775169432217
     
 
 
@@ -358,7 +358,7 @@ Ty = 6*eta - 3
 solve_and_plot(Nx=30, Ny=30, transformation=Transformation(ksi, eta, Tx, Ty), f=f, g=g)
 ```
 
-    19:36:16 Integral: -29.042871607935275
+    22:55:01 Integral: -29.042871607935275
     
 
 
@@ -394,7 +394,7 @@ Ty = 6*eta - 3
 solve_and_plot(Nx=30, Ny=30, transformation=Transformation(ksi, eta, Tx, Ty), f=f, g=g)
 ```
 
-    19:36:19 Integral: -11.898317261702779
+    22:55:04 Integral: -11.898317261702779
     
 
 
@@ -430,7 +430,7 @@ Ty = 6*eta - 3
 solve_and_plot(Nx=50, Ny=50, transformation=Transformation(ksi, eta, Tx, Ty), f=f, g=g)
 ```
 
-    19:36:25 Integral: 35.2240775563179
+    22:55:10 Integral: 35.2240775563179
     
 
 
@@ -474,7 +474,7 @@ Ty = 8*eta - 4
 solve_and_plot(Nx=60, Ny=60, transformation=Transformation(ksi, eta, Tx, Ty), f=f, g=g)
 ```
 
-    19:36:33 Integral: 64.89227055928428
+    22:55:18 Integral: 64.89227055928428
     
 
 
